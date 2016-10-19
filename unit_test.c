@@ -7,6 +7,7 @@ static int main_ret = 0;
 static int test_count = 0;
 static int test_pass = 0;
 
+// 宏里有多过一个语句（statement），就需要用（只能用） do { /*...*/ } while(0) 包裹成单个语句
 #define EXPECT_EQ_BASE(equality, expect, actual, format) \
     do {\
         test_count++;\
@@ -36,7 +37,7 @@ static void test_parse_true() {
 
 static void test_parse_false() {
     lept_value v;
-    v.type = LEPT_TRUE;
+    v.type = LEPT_FALSE;
     EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, "false"));
     EXPECT_EQ_INT(LEPT_FALSE, lept_get_type(&v));
 }
