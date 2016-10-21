@@ -39,8 +39,8 @@ C 语言的标准库含有 assert() 这个宏（需 #include ），提供断言�
 whindows: [使用 CRT 库查找内存泄漏](https://msdn.microsoft.com/zh-cn/library/x98tx3cf.aspx)
 Linux: valgrind -- leak-check=full ./leptjson_test
 
-
 ## Unicode
 
-* 浮点数
-* Github、CMake、valgrind、Doxygen 等工具
+## 浮点数
+
+## Github、CMake、valgrind、Doxygen 等工具
