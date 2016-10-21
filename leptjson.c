@@ -44,8 +44,14 @@ static void* lept_context_pop(lept_context* c, size_t size) {
 
 void lept_free(lept_value* v) {
     assert(v != NULL);
+    size_t i;
     if (v->type == LEPT_STRING) {
         free(v->s.s);
+    } else if (v->type == LEPT_ARRAY) { // 应该先把数组内的元素通过递归调用 lept_free() 释放，然后才释放本身的 v->a.e
+        for (i = 0; i < v->a.size; i++) {
+            lept_free(&v->a.e[i]);
+        }
+        free(v->a.e);
     }
     v->type = LEPT_NULL; // 避免重复释放
 }
@@ -58,10 +64,14 @@ static void lept_parse_whitespace(lept_context* c) {
     c->json = p;
 }
 
+
 lept_type lept_get_type(const lept_value* v) {
     assert(v != NULL);
     return v->type;
 }
+
+
+static int lept_parse_value(lept_context* c, lept_value* v);
 
 
 // null, true, false
@@ -258,12 +268,79 @@ static int lept_parse_string(lept_context* c, lept_value* v) {
 }
 
 
+// array = %x5B ws [ value *( ws %x2C ws value ) ] ws %x5D
+
+size_t lept_get_array_size(const lept_value* v) {
+    assert(v != NULL && v->type == LEPT_ARRAY);
+    return v->a.size;
+}
+
+lept_value* lept_get_array_element(const lept_value* v, size_t index) {
+    assert(v != NULL && v->type == LEPT_ARRAY);
+    assert(index < v->a.size);
+    return &v->a.e[index];
+}
+
+// 和字符串有点不一样，如果把 JSON 当作一棵树的数据结构，JSON 字符串是叶节点，而 JSON 数组是中间节点。
+// 在叶节点的解析函数中，我们怎样使用那个堆栈也可以，只要最后还原就好了。
+// 但对于数组这样的中间节点，只要在解析函数结束时还原堆栈的状态，就没有问题。
+static int lept_parse_array(lept_context* c, lept_value* v) {
+    size_t size = 0;
+    int ret;
+    EXPECT(c, '[');
+    lept_parse_whitespace(c);
+    if (*c->json == ']') {
+        c->json++;
+        v->type = LEPT_ARRAY;
+        v->a.size = 0;
+        v->a.e = NULL;
+        return LEPT_PARSE_OK;
+    }
+    for (;;) {
+        lept_value e;
+        lept_init(&e);
+        if ((ret = lept_parse_value(c, &e)) != LEPT_PARSE_OK) {
+            break;
+        }
+        memcpy(lept_context_push(c, sizeof(lept_value)), &e, sizeof(lept_value));
+        size++;
+
+        lept_parse_whitespace(c);
+
+        if (*c->json == ',') {
+            c->json++;
+            lept_parse_whitespace(c);
+        } else if (*c->json == ']') {
+            c->json++;
+            v->type = LEPT_ARRAY;
+            v->a.size = size;
+            size *= sizeof(lept_value);
+            memcpy(v->a.e = (lept_value*)malloc(size), lept_context_pop(c, size), size);
+            return LEPT_PARSE_OK;
+        } else {
+            ret = LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
+            break;
+        }
+    }
+
+    /* Pop and free values on the stack */
+    size_t i;
+    for (i = 0; i < size; i++) {
+        lept_free((lept_value *) lept_context_pop(c, sizeof(lept_value)));
+    }
+
+    return ret;
+}
+
+
+
 static int lept_parse_value(lept_context* c, lept_value* v) {
     switch (*c->json) {
         case 'n':  return lept_parse_literal(c, v, "null", LEPT_NULL);
         case 't':  return lept_parse_literal(c, v, "true", LEPT_TRUE);
         case 'f':  return lept_parse_literal(c, v, "false", LEPT_FALSE);
         case '"':  return lept_parse_string(c, v);
+        case '[':  return lept_parse_array(c, v);
         case '\0': return LEPT_PARSE_EXPECT_VALUE;
         default:   return lept_parse_number(c, v);
     }

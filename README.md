@@ -35,6 +35,12 @@ C 语言的标准库含有 assert() 这个宏（需 #include ），提供断言�
 * 如果那个错误是程序员无法避免，而是由运行时的环境所造成的，就要处理运行时错误（例如开启文件失败）。
 * 不能把有副作用的代码放在assert()中。
 
-* Unicode
+## 内存泄漏检测方法
+whindows: [使用 CRT 库查找内存泄漏](https://msdn.microsoft.com/zh-cn/library/x98tx3cf.aspx)
+Linux: valgrind -- leak-check=full ./leptjson_test
+
+
+## Unicode
+
 * 浮点数
 * Github、CMake、valgrind、Doxygen 等工具
